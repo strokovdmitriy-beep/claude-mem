@@ -82,7 +82,7 @@ export function useContextPreview(settings: Settings): UseContextPreviewResult {
 
   const refresh = useCallback(async () => {
     if (!selectedProject) {
-      setPreview('No project selected');
+      setPreview('Проект не выбран');
       return;
     }
 
@@ -104,11 +104,11 @@ export function useContextPreview(settings: Settings): UseContextPreviewResult {
       if (response.ok) {
         setPreview(text);
       } else {
-        setError('Failed to load preview');
+        setError('Не удалось загрузить превью');
       }
     } catch (error: unknown) {
       console.error('Failed to load context preview:', error instanceof Error ? error.message : String(error));
-      setError('Failed to load preview');
+      setError('Не удалось загрузить превью');
     }
 
     setIsLoading(false);

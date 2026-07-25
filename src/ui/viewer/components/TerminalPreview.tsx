@@ -108,9 +108,9 @@ export function TerminalPreview({ content, isLoading = false, className = '' }: 
             e.currentTarget.style.borderColor = wordWrap ? 'var(--color-border-primary)' : 'var(--color-accent-primary)';
             e.currentTarget.style.color = wordWrap ? 'var(--color-text-secondary)' : 'var(--color-accent-primary)';
           }}
-          title={wordWrap ? 'Disable word wrap (scroll horizontally)' : 'Enable word wrap'}
+          title={wordWrap ? 'Отключить перенос строк (горизонтальная прокрутка)' : 'Включить перенос строк'}
         >
-          {wordWrap ? '⤢ Wrap' : '⇄ Scroll'}
+          {wordWrap ? '⤢ Перенос' : '⇄ Прокрутка'}
         </button>
       </div>
 
@@ -124,7 +124,7 @@ export function TerminalPreview({ content, isLoading = false, className = '' }: 
             color: 'var(--color-text-secondary)'
           }}
         >
-          Loading preview...
+          Загрузка превью...
         </div>
       ) : (
         <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>

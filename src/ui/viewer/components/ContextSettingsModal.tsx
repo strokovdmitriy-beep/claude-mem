@@ -176,10 +176,10 @@ export function ContextSettingsModal({
       <div className="context-settings-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="modal-header">
-          <h2>Settings</h2>
+          <h2>Настройки</h2>
           <div className="header-controls">
             <label className="preview-selector">
-              Source:
+              Источник:
               <select
                 value={selectedSource || ''}
                 onChange={(e) => setSelectedSource(e.target.value)}
@@ -191,7 +191,7 @@ export function ContextSettingsModal({
               </select>
             </label>
             <label className="preview-selector">
-              Project:
+              Проект:
               <select
                 value={selectedProject || ''}
                 onChange={(e) => setSelectedProject(e.target.value)}
@@ -205,7 +205,7 @@ export function ContextSettingsModal({
             <button
               onClick={onClose}
               className="modal-close-btn"
-              title="Close (Esc)"
+              title="Закрыть (Esc)"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -222,7 +222,7 @@ export function ContextSettingsModal({
             <div className="preview-content">
               {error ? (
                 <div style={{ color: '#ff6b6b' }}>
-                  Error loading preview: {error}
+                  Ошибка загрузки превью: {error}
                 </div>
               ) : (
                 <TerminalPreview content={preview} isLoading={isLoading} />
@@ -234,12 +234,12 @@ export function ContextSettingsModal({
           <div className="settings-column">
             {/* Section 1: Loading */}
             <CollapsibleSection
-              title="Loading"
-              description="How many observations to inject"
+              title="Загрузка"
+              description="Сколько наблюдений подгружать в контекст"
             >
               <FormField
-                label="Observations"
-                tooltip="Number of recent observations to include in context (1-200)"
+                label="Наблюдения"
+                tooltip="Количество последних наблюдений, включаемых в контекст (1-200)"
               >
                 <input
                   type="number"
@@ -250,8 +250,8 @@ export function ContextSettingsModal({
                 />
               </FormField>
               <FormField
-                label="Sessions"
-                tooltip="Number of recent sessions to pull observations from (1-50)"
+                label="Сессии"
+                tooltip="Количество последних сессий, из которых берутся наблюдения (1-50)"
               >
                 <input
                   type="number"
@@ -265,14 +265,14 @@ export function ContextSettingsModal({
 
             {/* Section 2: Display */}
             <CollapsibleSection
-              title="Display"
-              description="What to show in context tables"
+              title="Отображение"
+              description="Что показывать в таблицах контекста"
             >
               <div className="display-subsection">
-                <span className="subsection-label">Full Observations</span>
+                <span className="subsection-label">Полные наблюдения</span>
                 <FormField
-                  label="Count"
-                  tooltip="How many observations show expanded details (0-20)"
+                  label="Количество"
+                  tooltip="Сколько наблюдений показывать в развёрнутом виде (0-20)"
                 >
                   <input
                     type="number"
@@ -283,40 +283,40 @@ export function ContextSettingsModal({
                   />
                 </FormField>
                 <FormField
-                  label="Field"
-                  tooltip="Which field to expand for full observations"
+                  label="Поле"
+                  tooltip="Какое поле разворачивать для полных наблюдений"
                 >
                   <select
                     value={formState.CLAUDE_MEM_CONTEXT_FULL_FIELD || 'narrative'}
                     onChange={(e) => updateSetting('CLAUDE_MEM_CONTEXT_FULL_FIELD', e.target.value)}
                   >
-                    <option value="narrative">Narrative</option>
-                    <option value="facts">Facts</option>
+                    <option value="narrative">Описание</option>
+                    <option value="facts">Факты</option>
                   </select>
                 </FormField>
               </div>
 
               <div className="display-subsection">
-                <span className="subsection-label">Token Economics</span>
+                <span className="subsection-label">Экономика токенов</span>
                 <div className="toggle-group">
                   <ToggleSwitch
                     id="show-read-tokens"
-                    label="Read cost"
-                    description="Tokens to read this observation"
+                    label="Стоимость чтения"
+                    description="Токенов на чтение этого наблюдения"
                     checked={formState.CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS === 'true'}
                     onChange={() => toggleBoolean('CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS')}
                   />
                   <ToggleSwitch
                     id="show-work-tokens"
-                    label="Work investment"
-                    description="Tokens spent creating this observation"
+                    label="Затраты на создание"
+                    description="Токенов потрачено на создание этого наблюдения"
                     checked={formState.CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS === 'true'}
                     onChange={() => toggleBoolean('CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS')}
                   />
                   <ToggleSwitch
                     id="show-savings-amount"
-                    label="Savings"
-                    description="Total tokens saved by reusing context"
+                    label="Экономия"
+                    description="Всего токенов сэкономлено за счёт переиспользования контекста"
                     checked={formState.CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT === 'true'}
                     onChange={() => toggleBoolean('CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT')}
                   />
@@ -326,36 +326,36 @@ export function ContextSettingsModal({
 
             {/* Section 4: Advanced */}
             <CollapsibleSection
-              title="Advanced"
-              description="AI provider and model selection"
+              title="Дополнительно"
+              description="Выбор ИИ-провайдера и модели"
               defaultOpen={false}
             >
               <FormField
-                label="AI Provider"
-                tooltip="Choose between Claude (via Agent SDK) or Gemini (via REST API)"
+                label="ИИ-провайдер"
+                tooltip="Выбор между Claude (через Agent SDK), Gemini и OpenRouter (через REST API)"
               >
                 <select
                   value={formState.CLAUDE_MEM_PROVIDER || 'claude'}
                   onChange={(e) => updateSetting('CLAUDE_MEM_PROVIDER', e.target.value)}
                 >
-                  <option value="claude">Claude (uses your Claude account)</option>
-                  <option value="gemini">Gemini (uses API key)</option>
-                  <option value="openrouter">OpenRouter (multi-model)</option>
+                  <option value="claude">Claude (использует ваш аккаунт Claude)</option>
+                  <option value="gemini">Gemini (использует API-ключ)</option>
+                  <option value="openrouter">OpenRouter (мульти-модельный)</option>
                 </select>
               </FormField>
 
               {formState.CLAUDE_MEM_PROVIDER === 'claude' && (
                 <FormField
-                  label="Claude Model"
-                  tooltip="Claude model used for generating observations"
+                  label="Модель Claude"
+                  tooltip="Модель Claude, используемая для генерации наблюдений"
                 >
                   <select
                     value={formState.CLAUDE_MEM_MODEL || 'haiku'}
                     onChange={(e) => updateSetting('CLAUDE_MEM_MODEL', e.target.value)}
                   >
-                    <option value="haiku">haiku (fastest)</option>
-                    <option value="sonnet">sonnet (balanced)</option>
-                    <option value="opus">opus (highest quality)</option>
+                    <option value="haiku">haiku (самая быстрая)</option>
+                    <option value="sonnet">sonnet (сбалансированная)</option>
+                    <option value="opus">opus (наивысшее качество)</option>
                   </select>
                 </FormField>
               )}
@@ -363,36 +363,36 @@ export function ContextSettingsModal({
               {formState.CLAUDE_MEM_PROVIDER === 'gemini' && (
                 <>
                   <FormField
-                    label="Gemini API Key"
-                    tooltip="Your Google AI Studio API key (or set GEMINI_API_KEY env var)"
+                    label="API-ключ Gemini"
+                    tooltip="Ваш API-ключ Google AI Studio (или переменная окружения GEMINI_API_KEY)"
                   >
                     <input
                       type="password"
                       value={formState.CLAUDE_MEM_GEMINI_API_KEY || ''}
                       onChange={(e) => updateSetting('CLAUDE_MEM_GEMINI_API_KEY', e.target.value)}
-                      placeholder="Enter Gemini API key..."
+                      placeholder="Введите API-ключ Gemini..."
                     />
                   </FormField>
                   <FormField
-                    label="Gemini Model"
-                    tooltip="Gemini model used for generating observations"
+                    label="Модель Gemini"
+                    tooltip="Модель Gemini, используемая для генерации наблюдений"
                   >
                     <select
                       value={formState.CLAUDE_MEM_GEMINI_MODEL || 'gemini-flash-latest'}
                       onChange={(e) => updateSetting('CLAUDE_MEM_GEMINI_MODEL', e.target.value)}
                     >
-                      <option value="gemini-flash-latest">gemini-flash-latest (default, latest GA Flash)</option>
-                      <option value="gemini-flash-lite-latest">gemini-flash-lite-latest (latest GA Flash-Lite)</option>
+                      <option value="gemini-flash-latest">gemini-flash-latest (по умолчанию, последний GA Flash)</option>
+                      <option value="gemini-flash-lite-latest">gemini-flash-lite-latest (последний GA Flash-Lite)</option>
                       <option value="gemini-3.5-flash">gemini-3.5-flash</option>
                       <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option>
-                      <option value="gemini-3-flash-preview">gemini-3-flash-preview (preview)</option>
+                      <option value="gemini-3-flash-preview">gemini-3-flash-preview (превью)</option>
                     </select>
                   </FormField>
                   <div className="toggle-group" style={{ marginTop: '8px' }}>
                     <ToggleSwitch
                       id="gemini-rate-limiting"
-                      label="Rate Limiting"
-                      description="Enable for free tier (10-30 RPM). Disable if you have billing set up (1000+ RPM)."
+                      label="Ограничение частоты запросов"
+                      description="Включите для бесплатного тарифа (10–30 запросов/мин). Отключите, если подключена оплата (1000+ запросов/мин)."
                       checked={formState.CLAUDE_MEM_GEMINI_RATE_LIMITING_ENABLED === 'true'}
                       onChange={(checked) => updateSetting('CLAUDE_MEM_GEMINI_RATE_LIMITING_ENABLED', checked ? 'true' : 'false')}
                     />
@@ -403,30 +403,30 @@ export function ContextSettingsModal({
               {formState.CLAUDE_MEM_PROVIDER === 'openrouter' && (
                 <>
                   <FormField
-                    label="OpenRouter API Key"
-                    tooltip="Your OpenRouter API key from openrouter.ai (or set OPENROUTER_API_KEY env var)"
+                    label="API-ключ OpenRouter"
+                    tooltip="Ваш API-ключ OpenRouter с openrouter.ai (или переменная окружения OPENROUTER_API_KEY)"
                   >
                     <input
                       type="password"
                       value={formState.CLAUDE_MEM_OPENROUTER_API_KEY || ''}
                       onChange={(e) => updateSetting('CLAUDE_MEM_OPENROUTER_API_KEY', e.target.value)}
-                      placeholder="Enter OpenRouter API key..."
+                      placeholder="Введите API-ключ OpenRouter..."
                     />
                   </FormField>
                   <FormField
-                    label="OpenRouter Model"
-                    tooltip="Model identifier from OpenRouter (e.g., anthropic/claude-3.5-sonnet, google/gemini-2.0-flash-thinking-exp)"
+                    label="Модель OpenRouter"
+                    tooltip="Идентификатор модели с OpenRouter (например, anthropic/claude-3.5-sonnet, google/gemini-2.0-flash-thinking-exp)"
                   >
                     <input
                       type="text"
                       value={formState.CLAUDE_MEM_OPENROUTER_MODEL || 'xiaomi/mimo-v2-flash:free'}
                       onChange={(e) => updateSetting('CLAUDE_MEM_OPENROUTER_MODEL', e.target.value)}
-                      placeholder="e.g., xiaomi/mimo-v2-flash:free"
+                      placeholder="например, xiaomi/mimo-v2-flash:free"
                     />
                   </FormField>
                   <FormField
-                    label="Site URL (Optional)"
-                    tooltip="Your site URL for OpenRouter analytics (optional)"
+                    label="URL сайта (необязательно)"
+                    tooltip="URL вашего сайта для аналитики OpenRouter (необязательно)"
                   >
                     <input
                       type="text"
@@ -436,8 +436,8 @@ export function ContextSettingsModal({
                     />
                   </FormField>
                   <FormField
-                    label="App Name (Optional)"
-                    tooltip="Your app name for OpenRouter analytics (optional)"
+                    label="Название приложения (необязательно)"
+                    tooltip="Название вашего приложения для аналитики OpenRouter (необязательно)"
                   >
                     <input
                       type="text"
@@ -450,8 +450,8 @@ export function ContextSettingsModal({
               )}
 
               <FormField
-                label="Worker Port"
-                tooltip="Port for the background worker service"
+                label="Порт воркера"
+                tooltip="Порт фонового сервиса-воркера"
               >
                 <input
                   type="number"
@@ -465,15 +465,15 @@ export function ContextSettingsModal({
               <div className="toggle-group" style={{ marginTop: '12px' }}>
                 <ToggleSwitch
                   id="show-last-summary"
-                  label="Include last summary"
-                  description="Add previous session's summary to context"
+                  label="Включать последнюю сводку"
+                  description="Добавлять сводку предыдущей сессии в контекст"
                   checked={formState.CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY === 'true'}
                   onChange={() => toggleBoolean('CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY')}
                 />
                 <ToggleSwitch
                   id="show-last-message"
-                  label="Include last message"
-                  description="Add previous session's final message"
+                  label="Включать последнее сообщение"
+                  description="Добавлять последнее сообщение предыдущей сессии"
                   checked={formState.CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE === 'true'}
                   onChange={() => toggleBoolean('CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE')}
                 />
@@ -492,7 +492,7 @@ export function ContextSettingsModal({
             onClick={handleSave}
             disabled={isSaving}
           >
-            {isSaving ? 'Saving...' : 'Save'}
+            {isSaving ? 'Сохранение...' : 'Сохранить'}
           </button>
         </div>
       </div>
