@@ -9,10 +9,14 @@ import { SettingsDefaultsManager } from "../../shared/SettingsDefaultsManager.js
  * to are (authoritative source: plans/08-opencode-integration.md "Fix sequence"
  * step 1, cross-checked against OpenCode's documented plugin API):
  *
- *   - `tool.execute.after`            (input, output) — fires after every tool run
- *   - `chat.message`                  ({}, output)    — fires on each chat message
- *   - `event`                         ({ event })     — generic bus; event.type carries the name
- *   - `experimental.session.compacting`               — fires when a session compacts
+ *   - `tool.execute.after`               (input, output) — fires after every tool run
+ *   - `chat.message`                     ({}, output)    — fires on each chat message
+ *   - `event`                            ({ event })     — generic bus; event.type carries the name
+ *   - `experimental.session.compacting`                  — fires when a session compacts
+ *   - `experimental.chat.system.transform` (input, output) — fires before every model
+ *     call; `output.system` is a mutable string[] the plugin can push into to
+ *     inject memory context, mirroring the SessionStart/UserPromptSubmit
+ *     injection Claude Code gets from its own hooks.
  *
  * The generic `event` hook delivers bus events whose discriminant is
  * `event.type`. The only bus event types claude-mem reacts to are
@@ -40,6 +44,7 @@ export const REGISTERED_OPENCODE_HOOKS = [
   "chat.message",
   "event",
   "experimental.session.compacting",
+  "experimental.chat.system.transform",
 ] as const;
 
 interface OpenCodeProject {
@@ -82,6 +87,19 @@ interface SessionCompactingInput {
   sessionID: string;
 }
 
+interface ChatSystemTransformInput {
+  sessionID: string;
+}
+
+interface ChatSystemTransformOutput {
+  system: string[];
+}
+
+interface SemanticContextResponse {
+  context: string;
+  count: number;
+}
+
 interface BusEvent {
   type: string;
   properties?: {
@@ -121,6 +139,23 @@ function workerPostFireAndForget(
   });
 }
 
+async function workerPostJson<T>(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<T | null> {
+  try {
+    const response = await fetch(`${WORKER_BASE_URL}${path}`, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
 async function workerGetText(path: string): Promise<string | null> {
   try {
     const response = await fetch(`${WORKER_BASE_URL}${path}`, { headers: JSON_HEADERS });
@@ -140,6 +175,9 @@ async function workerGetText(path: string): Promise<string | null> {
 
 const contentSessionIdsByOpenCodeSessionId = new Map<string, string>();
 const initializedSessionIds = new Set<string>();
+/** Most recent user message text per OpenCode session, used as the semantic
+ * search query for automatic memory injection (`experimental.chat.system.transform`). */
+const lastUserMessageBySessionId = new Map<string, string>();
 
 const MAX_SESSION_MAP_ENTRIES = 1000;
 
@@ -166,15 +204,25 @@ function getOrCreateContentSessionId(openCodeSessionId: string): string {
  * The worker has no "session.created" event in OpenCode, so we lazily initialize
  * the session the first time we see any activity for it (tool run or chat
  * message). This guarantees a session row exists before observations arrive.
+ *
+ * `prompt` is the real first user message when available. Without it the
+ * worker falls back to a "[media prompt]" placeholder and semantic context
+ * injection never fires (the worker requires a real prompt of at least 20
+ * chars before it will search past observations).
  */
-function ensureSessionInitialized(openCodeSessionId: string, projectName: string): string {
+function ensureSessionInitialized(
+  openCodeSessionId: string,
+  projectName: string,
+  prompt?: string,
+): string {
   const contentSessionId = getOrCreateContentSessionId(openCodeSessionId);
   if (!initializedSessionIds.has(openCodeSessionId)) {
     initializedSessionIds.add(openCodeSessionId);
     workerPostFireAndForget("/api/sessions/init", {
       contentSessionId,
       project: projectName,
-      prompt: "",
+      prompt: prompt || "",
+      platformSource: "opencode",
     });
   }
   return contentSessionId;
@@ -187,7 +235,12 @@ function truncate(text: string): string {
 }
 
 export const ClaudeMemPlugin = async (ctx: OpenCodePluginContext) => {
-  const projectName = ctx.project?.name || "opencode";
+  // ctx.project has no `name` field in OpenCode's real plugin context (only
+  // `id`/`directory`), so `ctx.project?.name` was always undefined and every
+  // session got bucketed under the literal project "opencode" regardless of
+  // which real project it came from. Derive the project name from the
+  // directory instead, the same way claude-mem names Claude Code projects.
+  const projectName = ctx.directory.split("/").filter(Boolean).pop() || "opencode";
 
   console.log(`[claude-mem] OpenCode plugin loading (project: ${projectName})`);
 
@@ -205,32 +258,67 @@ export const ClaudeMemPlugin = async (ctx: OpenCodePluginContext) => {
         tool_input: output.args || {},
         tool_response: truncate(output.output || ""),
         cwd: ctx.directory,
+        platformSource: "opencode",
       });
     },
 
-    // Capture assistant chat messages as observations.
+    // Capture chat messages as observations. User messages also seed the
+    // session's real prompt (see ensureSessionInitialized) and are stashed
+    // for the semantic-context hook below; assistant messages become
+    // observations the same way tool runs do.
     "chat.message": async (
       _input: Record<string, unknown>,
       output: ChatMessageOutput,
     ): Promise<void> => {
       const sessionID = output.message?.sessionID;
       if (!sessionID) return;
-      if (output.message?.role !== "assistant") return;
 
-      const contentSessionId = ensureSessionInitialized(sessionID, projectName);
       const messageText = (output.parts || [])
         .filter((part) => part.type === "text" && typeof part.text === "string")
         .map((part) => part.text as string)
         .join("\n");
+
+      if (output.message?.role === "user") {
+        if (messageText) {
+          lastUserMessageBySessionId.set(sessionID, messageText);
+          ensureSessionInitialized(sessionID, projectName, messageText);
+        }
+        return;
+      }
+
+      if (output.message?.role !== "assistant") return;
       if (!messageText) return;
 
+      const contentSessionId = ensureSessionInitialized(sessionID, projectName);
       workerPostFireAndForget("/api/sessions/observations", {
         contentSessionId,
         tool_name: "assistant_message",
         tool_input: {},
         tool_response: truncate(messageText),
         cwd: ctx.directory,
+        platformSource: "opencode",
       });
+    },
+
+    // Inject relevant past memory into the system prompt before every model
+    // call — OpenCode has no SessionStart-style hook, so this is the closest
+    // equivalent to the context injection Claude Code gets automatically.
+    "experimental.chat.system.transform": async (
+      input: ChatSystemTransformInput,
+      output: ChatSystemTransformOutput,
+    ): Promise<void> => {
+      const query = lastUserMessageBySessionId.get(input.sessionID);
+      if (!query || query.length < 20) return;
+
+      const result = await workerPostJson<SemanticContextResponse>("/api/context/semantic", {
+        q: query,
+        project: projectName,
+        limit: 5,
+        platformSource: "opencode",
+      });
+      if (result?.context) {
+        output.system.push(result.context);
+      }
     },
 
     // Summarize when a session compacts. This is OpenCode's real compaction
@@ -242,6 +330,7 @@ export const ClaudeMemPlugin = async (ctx: OpenCodePluginContext) => {
       workerPostFireAndForget("/api/sessions/summarize", {
         contentSessionId,
         last_assistant_message: "",
+        platformSource: "opencode",
       });
     },
 
@@ -259,12 +348,14 @@ export const ClaudeMemPlugin = async (ctx: OpenCodePluginContext) => {
           workerPostFireAndForget("/api/sessions/summarize", {
             contentSessionId,
             last_assistant_message: "",
+            platformSource: "opencode",
           });
           break;
         }
         case "session.deleted": {
           contentSessionIdsByOpenCodeSessionId.delete(sessionID);
           initializedSessionIds.delete(sessionID);
+          lastUserMessageBySessionId.delete(sessionID);
           break;
         }
         default:

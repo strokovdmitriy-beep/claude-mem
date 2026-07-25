@@ -24,6 +24,7 @@ const REAL_OPENCODE_HOOK_NAMES = new Set<string>([
   "chat.message",
   "event",
   "experimental.session.compacting",
+  "experimental.chat.system.transform",
   "tool.execute.before",
   "permission.ask",
   "auth",
@@ -70,6 +71,7 @@ describe("OpenCode plugin event contract", () => {
     expect(hookKeys).toContain("tool.execute.after");
     expect(hookKeys).toContain("chat.message");
     expect(hookKeys).toContain("experimental.session.compacting");
+    expect(hookKeys).toContain("experimental.chat.system.transform");
     expect(hookKeys).toContain("event");
   });
 
@@ -117,9 +119,92 @@ describe("OpenCode plugin event contract", () => {
       const obsBody = obsPost!.body as Record<string, unknown>;
       expect(obsBody.tool_name).toBe("read");
       expect(obsBody.tool_response).toBe("file contents");
+
+      // Regression guard: every worker call must be tagged so sessions don't
+      // get silently bucketed under the "claude" platform in the dashboard.
+      const initBody = initPost!.body as Record<string, unknown>;
+      expect(initBody.platformSource).toBe("opencode");
+      expect(obsBody.platformSource).toBe("opencode");
+
+      // Regression guard: ctx.project has no `name` in the real OpenCode
+      // context, so the project must come from the directory basename, not
+      // the literal fallback string "opencode".
+      expect(initBody.project).toBe("x");
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  it("captures the real user prompt on session init instead of an empty string", async () => {
+    const posts: Array<{ url: string; body: unknown }> = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      posts.push({
+        url: String(url),
+        body: init?.body ? JSON.parse(String(init.body)) : null,
+      });
+      return new Response(JSON.stringify({ status: "queued" }), { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      const plugin = await ClaudeMemPlugin(pluginCtx);
+      await plugin["chat.message"](
+        {},
+        {
+          message: { sessionID: "ses_2", role: "user" },
+          parts: [{ type: "text", text: "please read the config file and summarize it" }],
+        },
+      );
+
+      const initPost = posts.find((p) => p.url.includes("/api/sessions/init"));
+      expect(initPost, "a user message should lazily init the session").toBeTruthy();
+      const initBody = initPost!.body as Record<string, unknown>;
+      expect(initBody.prompt).toBe("please read the config file and summarize it");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("injects semantic context into the system prompt for a follow-up user message", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      const urlString = String(url);
+      if (urlString.includes("/api/sessions/init")) {
+        return new Response(JSON.stringify({ status: "initialized" }), { status: 200 });
+      }
+      if (urlString.includes("/api/context/semantic")) {
+        return new Response(
+          JSON.stringify({ context: "## Relevant Past Work\nFixed the login bug.", count: 1 }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ status: "queued" }), { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      const plugin = await ClaudeMemPlugin(pluginCtx);
+      await plugin["chat.message"](
+        {},
+        {
+          message: { sessionID: "ses_3", role: "user" },
+          parts: [{ type: "text", text: "why did the login flow break last time we touched it" }],
+        },
+      );
+
+      const output = { system: ["base system prompt"] };
+      await plugin["experimental.chat.system.transform"]({ sessionID: "ses_3" }, output);
+
+      expect(output.system).toContain("## Relevant Past Work\nFixed the login bug.");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("skips semantic injection when there is no prior user message for the session", async () => {
+    const plugin = await ClaudeMemPlugin(pluginCtx);
+    const output = { system: ["base system prompt"] };
+    await plugin["experimental.chat.system.transform"]({ sessionID: "ses_never_seen" }, output);
+    expect(output.system).toEqual(["base system prompt"]);
   });
 });
 

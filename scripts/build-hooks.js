@@ -655,14 +655,18 @@ async function buildHooks() {
       console.log(`✓ openclaw plugin built (${(openclawStats.size / 1024).toFixed(2)} KB)`);
     }
 
-    if (fs.existsSync('src/integrations/opencode-plugin/index.ts')) {
+    if (fs.existsSync('src/integrations/opencode-plugin/plugin-entry.ts')) {
       console.log(`\n🔧 Building OpenCode plugin...`);
       const opencodeOutDir = 'dist/opencode-plugin';
       if (!fs.existsSync(opencodeOutDir)) {
         fs.mkdirSync(opencodeOutDir, { recursive: true });
       }
       await build({
-        entryPoints: ['src/integrations/opencode-plugin/index.ts'],
+        // Bundle plugin-entry.ts, NOT index.ts directly: index.ts also
+        // exports two non-function allowlist arrays (needed by the contract
+        // test) that make OpenCode's plugin loader throw "Plugin export is
+        // not a function" if they end up in what OpenCode actually imports.
+        entryPoints: ['src/integrations/opencode-plugin/plugin-entry.ts'],
         bundle: true,
         platform: 'node',
         target: 'node18',
