@@ -2,6 +2,8 @@
 
 Claude-mem is a Claude Code plugin providing persistent memory across sessions. It captures tool usage, compresses observations using the Claude Agent SDK, and injects relevant context into future sessions.
 
+@FORK_NOTES.md
+
 ## Build
 
 ```bash
