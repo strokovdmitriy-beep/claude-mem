@@ -332,7 +332,7 @@ export function ContextSettingsModal({
             >
               <FormField
                 label="ИИ-провайдер"
-                tooltip="Выбор между Claude (через Agent SDK), Gemini и OpenRouter (через REST API)"
+                tooltip="Выбор провайдера, который создаёт наблюдения: Claude (через Agent SDK), Gemini (через REST API) или OpenRouter — также используется наблюдателем claude-mem"
               >
                 <select
                   value={formState.CLAUDE_MEM_PROVIDER || 'claude'}
@@ -340,7 +340,7 @@ export function ContextSettingsModal({
                 >
                   <option value="claude">Claude (использует ваш аккаунт Claude)</option>
                   <option value="gemini">Gemini (использует API-ключ)</option>
-                  <option value="openrouter">OpenRouter (мульти-модельный)</option>
+                  <option value="openrouter">OpenRouter / наблюдатель claude-mem</option>
                 </select>
               </FormField>
 
