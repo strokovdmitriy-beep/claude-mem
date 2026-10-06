@@ -14,6 +14,12 @@
 
 ## Наши изменения (сверх апстрима, самое новое сверху)
 
+### 2026-10-06 — слияние апстрима до v13.34.2
+
+- Апстрим включил собственные исправления OpenCode: точка входа экспортирует только функцию плагина, промпты пользователей и `platform_source` сохраняются, а контекст проекта подставляется через `experimental.chat.system.transform`. Наш старый `plugin-entry.ts` удалён как неиспользуемый; код и тесты OpenCode взяты из актуального апстрима.
+- Русский перевод панели настроек сохранён и расширен на новые поля апстрима. Новые настройки и защиту от сохранения значений до загрузки панели оставили без изменений.
+- Слияние выполнялось в отдельном worktree: конфликтные файлы установленного плагина могут временно сломать хуки Codex и заблокировать инструменты.
+
 ### 2026-07-25 — Fix opencode-plugin capture + перевод панели Settings
 Коммиты: `dff91c18`, `8adfe331`
 
@@ -49,18 +55,22 @@ python3 -c "import json; p='$DST/.install-version'; d=json.load(open(p)); d['ver
 ### OpenRouter free tier — суточный лимит, не поминутный
 `CLAUDE_MEM_OPENROUTER_MODEL` в `~/.claude-mem/settings.json` использует бесплатную модель через OpenRouter. Лимит **50 запросов/день** (не rate-per-minute) без депозита; ошибка в логе: `Rate limit exceeded: free-models-per-day`. `openai/gpt-oss-20b:free` — рабочая замена сгоревшей `xiaomi/mimo-v2-flash:free` (та вообще снята с OpenRouter, 404). Депозит $10 на OpenRouter поднимает лимит до 1000/день.
 
-### Codex: `plugin_hooks` не работает — тупик, не чинится на нашей стороне
-Приложение Codex (десктоп ChatGPT, проверено на `0.146.0-alpha.3.1`) в `codex features list` показывает `plugin_hooks: removed, false` — хуки от плагинов физически не долетают, реальным `codex exec` подтверждено (0 события за несколько прогонов). Это не специфика claude-mem: тот же путь (`[features] plugin_hooks = true` в `config.toml`) использует и OpenViking, и результат идентичный — 0 захвата. Ждём фикса от OpenAI, на своей стороне обходного пути нет (сессии Codex не читаются даже через альтернативный transcript-watcher — актуальный формат `~/.codex/sessions/*.jsonl` изменился, `payload.type` теперь `"message"` с полем `role`, а не старый формат `"user_message"`, под который написана `transcript-watch.example.json`).
+### Codex: не сливать апстрим в установленном каталоге
+Старое замечание о неработающих `plugin_hooks` относилось к `0.146.0-alpha.3.1`. В более новой версии хуки работают: при конфликтном слиянии в установленном каталоге они действительно выполнялись и блокировали инструменты, когда не могли связаться с worker. Исходный каталог `~/.claude/plugins/marketplaces/thedotmack` должен оставаться рабочим во время обновления. Конфликты разрешать в отдельном worktree и переносить готовый результат только после сборки и проверок.
 
 ## Как обновляться из апстрима
 
 ```bash
 cd ~/.claude/plugins/marketplaces/thedotmack
 git fetch upstream
-git merge upstream/main   # конфликты — руками
-git push origin main
+UPDATE_DIR=$(mktemp -d /tmp/claude-mem-update.XXXXXX)
+git worktree add --detach "$UPDATE_DIR" main
+cd "$UPDATE_DIR"
+git switch -c update-upstream-YYYY-MM-DD
+git merge upstream/main   # конфликты — руками, в отдельном worktree
+# Проверить сборку и тесты, создать merge-коммит и отправить его в origin/main.
 ```
 
-После мержа: если конфликт в `plugin/ui/viewer-bundle.js` или `dist/opencode-plugin/index.js` — это собранные файлы, не мержить руками, пересобрать (`node scripts/build-viewer.js` для UI, `node scripts/build-hooks.js` для остального). После `build-hooks.js` — `git status` и `git checkout --` откатить `plugin/scripts/*.cjs`, если наши правки их не касались (это шум от другой версии локального тулчейна, не реальные изменения).
+После мержа: если конфликт в `plugin/ui/viewer-bundle.js` или `dist/opencode-plugin/index.js` — это собранные файлы, не мержить руками, пересобрать (`node scripts/build-viewer.js` для UI, `node scripts/build-hooks.js` для остального). Перед переносом в установленный каталог отдельно проверить, что его локальная ветка чистая, и синхронизировать кэши Claude Code, Codex и OpenCode с новой версией.
 
 Апстрим обновляется часто (~раз в 2–3 дня по CHANGELOG.md) — подтягивать раз в 1–2 недели, чтобы не копился разрыв.
